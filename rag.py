@@ -1,6 +1,7 @@
 from pathlib import Path
 import os
 
+import numpy as np
 from dotenv import load_dotenv
 from openai import OpenAI
 
@@ -45,19 +46,95 @@ def create_embedding(text):
     return response.data[0].embedding
 
 
+def cosine_similarity(vector_a, vector_b):
+    a = np.array(vector_a)
+    b = np.array(vector_b)
+
+    return np.dot(a, b) / (
+        np.linalg.norm(a) * np.linalg.norm(b)
+    )
+
+
+# --------------------------------
+# 1. Загружаем документы
+# --------------------------------
+
 documents = load_documents()
 
-for document in documents:
-    chunks = split_into_chunks(document["text"])
 
-    for i, chunk in enumerate(chunks):
+# --------------------------------
+# 2. Создаём chunks + embeddings
+# --------------------------------
+
+chunks = []
+
+for document in documents:
+    document_chunks = split_into_chunks(document["text"])
+
+    for chunk in document_chunks:
         embedding = create_embedding(chunk)
 
-        print(f"\nChunk {i}:")
-        print(chunk)
+        chunks.append({
+            "filename": document["filename"],
+            "text": chunk,
+            "embedding": embedding
+        })
 
-        print("\nРазмер embedding:")
-        print(len(embedding))
 
-        print("\nПервые 5 чисел:")
-        print(embedding[:5])
+print(f"Всего chunks: {len(chunks)}")
+
+
+# --------------------------------
+# 3. Получаем вопрос пользователя
+# --------------------------------
+
+question = input("\nВаш вопрос: ")
+
+
+# --------------------------------
+# 4. Создаём embedding вопроса
+# --------------------------------
+
+question_embedding = create_embedding(question)
+
+
+# --------------------------------
+# 5. Сравниваем вопрос со chunks
+# --------------------------------
+
+results = []
+
+for chunk in chunks:
+    similarity = cosine_similarity(
+        question_embedding,
+        chunk["embedding"]
+    )
+
+    results.append({
+        "filename": chunk["filename"],
+        "text": chunk["text"],
+        "similarity": similarity
+    })
+
+
+# --------------------------------
+# 6. Сортируем по similarity
+# --------------------------------
+
+results.sort(
+    key=lambda x: x["similarity"],
+    reverse=True
+)
+
+
+# --------------------------------
+# 7. Показываем лучшие результаты
+# --------------------------------
+
+print("\nНаиболее релевантные chunks:\n")
+
+for result in results[:3]:
+    print("=" * 60)
+    print(f"Similarity: {result['similarity']:.4f}")
+    print(f"File: {result['filename']}")
+    print(result["text"])
