@@ -1,7 +1,6 @@
-from pathlib import Path
 import os
 
-import numpy as np
+import chromadb
 from dotenv import load_dotenv
 from google import genai
 
@@ -16,55 +15,26 @@ client = genai.Client(
     api_key=os.getenv("GEMINI_API_KEY")
 )
 
-DOCUMENTS_DIR = Path("documents")
+
+# ==========================================
+# ChromaDB
+# ==========================================
+
+chroma_client = chromadb.PersistentClient(
+    path="./chroma_db"
+)
+
+collection = chroma_client.get_collection(
+    name="company_documents"
+)
 
 
 # ==========================================
-# Загрузка документов
-# ==========================================
-
-def load_documents():
-    documents = []
-
-    for file_path in DOCUMENTS_DIR.glob("*.txt"):
-        text = file_path.read_text(
-            encoding="utf-8"
-        )
-
-        documents.append({
-            "filename": file_path.name,
-            "text": text
-        })
-
-    return documents
-
-
-# ==========================================
-# Chunking
-# ==========================================
-
-def split_into_chunks(text, chunk_size=200):
-    chunks = []
-
-    for start in range(
-        0,
-        len(text),
-        chunk_size
-    ):
-        chunk = text[
-            start:start + chunk_size
-        ]
-
-        chunks.append(chunk)
-
-    return chunks
-
-
-# ==========================================
-# Embeddings
+# Embedding
 # ==========================================
 
 def create_embedding(text):
+
     response = client.models.embed_content(
         model="gemini-embedding-001",
         contents=text
@@ -74,51 +44,7 @@ def create_embedding(text):
 
 
 # ==========================================
-# Similarity
-# ==========================================
-
-def cosine_similarity(vector_a, vector_b):
-    a = np.array(vector_a)
-    b = np.array(vector_b)
-
-    return np.dot(a, b) / (
-        np.linalg.norm(a)
-        * np.linalg.norm(b)
-    )
-
-
-# ==========================================
-# Создаём vector store
-# ==========================================
-
-documents = load_documents()
-
-chunks = []
-
-for document in documents:
-
-    document_chunks = split_into_chunks(
-        document["text"]
-    )
-
-    for chunk in document_chunks:
-
-        embedding = create_embedding(chunk)
-
-        chunks.append({
-            "filename": document["filename"],
-            "text": chunk,
-            "embedding": embedding
-        })
-
-
-print(
-    f"Загружено chunks: {len(chunks)}"
-)
-
-
-# ==========================================
-# Вопрос пользователя
+# Вопрос
 # ==========================================
 
 question = input(
@@ -136,49 +62,39 @@ question_embedding = create_embedding(
 
 
 # ==========================================
-# Semantic Search
+# Поиск в ChromaDB
 # ==========================================
 
-results = []
-
-for chunk in chunks:
-
-    similarity = cosine_similarity(
-        question_embedding,
-        chunk["embedding"]
-    )
-
-    results.append({
-        "filename": chunk["filename"],
-        "text": chunk["text"],
-        "similarity": similarity
-    })
-
-
-results.sort(
-    key=lambda x: x["similarity"],
-    reverse=True
+results = collection.query(
+    query_embeddings=[question_embedding],
+    n_results=3
 )
 
 
-# Берём лучшие 3 chunks
-top_chunks = results[:3]
+# ==========================================
+# Получаем chunks
+# ==========================================
+
+documents = results["documents"][0]
+
+metadatas = results["metadatas"][0]
 
 
 # ==========================================
-# Формируем Context
+# Context
 # ==========================================
 
 context_parts = []
 
-for i, result in enumerate(
-    top_chunks,
+
+for i, document in enumerate(
+    documents,
     start=1
 ):
 
     context_parts.append(
         f"[Source {i}]\n"
-        f"{result['text']}"
+        f"{document}"
     )
 
 
@@ -188,7 +104,7 @@ context = "\n\n".join(
 
 
 # ==========================================
-# Prompt для LLM
+# Prompt
 # ==========================================
 
 prompt = f"""
@@ -205,7 +121,6 @@ prompt = f"""
 
 {context}
 
-
 Вопрос:
 
 {question}
@@ -213,7 +128,7 @@ prompt = f"""
 
 
 # ==========================================
-# Генерация ответа
+# Gemini
 # ==========================================
 
 response = client.models.generate_content(
@@ -221,11 +136,12 @@ response = client.models.generate_content(
     contents=prompt
 )
 
+
 answer = response.text
 
 
 # ==========================================
-# Результат
+# Ответ
 # ==========================================
 
 print("\n" + "=" * 60)
@@ -236,13 +152,15 @@ print(answer)
 
 print("\n" + "=" * 60)
 
-print("ИСПОЛЬЗОВАННЫЕ ИСТОЧНИКИ:")
+print("ИСТОЧНИКИ:")
 
-for result in top_chunks:
+
+for i, metadata in enumerate(
+    metadatas,
+    start=1
+):
 
     print(
-        f"\n[{result['filename']}] "
-        f"(similarity={result['similarity']:.4f})"
+        f"[Source {i}] "
+        f"{metadata['filename']}"
     )
-
-    print(result["text"])

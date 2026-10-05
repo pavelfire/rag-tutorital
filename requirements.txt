@@ -1,3 +1,4 @@
 google-genai
 numpy
 python-dotenv
+chromadb
