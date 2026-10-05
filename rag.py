@@ -3,7 +3,7 @@ import os
 
 import numpy as np
 from dotenv import load_dotenv
-from openai import OpenAI
+from google import genai
 
 
 # ==========================================
@@ -12,8 +12,8 @@ from openai import OpenAI
 
 load_dotenv()
 
-client = OpenAI(
-    api_key=os.getenv("OPENAI_API_KEY")
+client = genai.Client(
+    api_key=os.getenv("GEMINI_API_KEY")
 )
 
 DOCUMENTS_DIR = Path("documents")
@@ -65,12 +65,12 @@ def split_into_chunks(text, chunk_size=200):
 # ==========================================
 
 def create_embedding(text):
-    response = client.embeddings.create(
-        model="text-embedding-3-small",
-        input=text
+    response = client.models.embed_content(
+        model="gemini-embedding-001",
+        contents=text
     )
 
-    return response.data[0].embedding
+    return response.embeddings[0].values
 
 
 # ==========================================
@@ -216,13 +216,12 @@ prompt = f"""
 # Генерация ответа
 # ==========================================
 
-response = client.responses.create(
-    model="gpt-5.6",
-    input=prompt
+response = client.models.generate_content(
+    model="gemini-3.8-flash",
+    contents=prompt
 )
 
-
-answer = response.output_text
+answer = response.text
 
 
 # ==========================================
