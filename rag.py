@@ -1,23 +1,41 @@
-
 from pathlib import Path
 
-# Находим папку с документами
+
 DOCUMENTS_DIR = Path("documents")
 
-# Загружаем все текстовые файлы
-documents = []
 
-for file_path in DOCUMENTS_DIR.glob("*.txt"):
-    text = file_path.read_text(encoding="utf-8")
+def load_documents():
+    documents = []
 
-    documents.append({
-        "filename": file_path.name,
-        "text": text
-    })
+    for file_path in DOCUMENTS_DIR.glob("*.txt"):
+        text = file_path.read_text(encoding="utf-8")
 
-# Проверяем результат
-print(f"Загружено документов: {len(documents)}")
+        documents.append({
+            "filename": file_path.name,
+            "text": text
+        })
+
+    return documents
+
+
+def split_into_chunks(text, chunk_size=100):
+    chunks = []
+
+    for start in range(0, len(text), chunk_size):
+        chunk = text[start:start + chunk_size]
+        chunks.append(chunk)
+
+    return chunks
+
+
+documents = load_documents()
 
 for document in documents:
+    chunks = split_into_chunks(document["text"])
+
     print(f"\nФайл: {document['filename']}")
-    print(document["text"])
+    print(f"Количество chunks: {len(chunks)}")
+
+    for i, chunk in enumerate(chunks):
+        print(f"\n--- Chunk {i} ---")
+        print(chunk)
