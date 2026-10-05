@@ -1,4 +1,5 @@
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+in root create .env and there OPENAI_API_KEY=your_key
 python3 rag.py
