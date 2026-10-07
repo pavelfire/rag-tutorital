@@ -1,5 +1,59 @@
+# RAG API
+
+API отвечает на вопросы по документам из `documents/`. Индекс Chroma строится при старте контейнера и хранится в `./data`.
+
+## Подготовка
+
+В корне проекта создайте `.env`:
+
+```
+GEMINI_API_KEY=your_key
+```
+
+На сервере должны быть Docker, docker compose, контейнер `nginx-proxy` и внешняя сеть `web`.
+
+## Сборка
+
+```
+docker build -t rag-api .
+docker images
+```
+
+Образ копирует `app.py`, `ingest.py` и `documents/`, слушает порт `8000`.
+
+## Публикация
+
+Из корня проекта:
+
+```
+docker compose up -d --build
+```
+
+Compose поднимает контейнер `rag` в сети `web`. nginx-proxy отдаёт его на `https://rag.eletmed.ru` и выпускает сертификат Let's Encrypt.
+
+Проверка конфига прокси:
+
+```
+docker exec nginx-proxy nginx -T 2>&1 | grep -E 'server_name|proxy_pass|listen'
+```
+
+Проверка API:
+
+```
+curl https://rag.eletmed.ru/
+curl -X POST https://rag.eletmed.ru/ask \
+  -H 'Content-Type: application/json' \
+  -d '{"question":"Чем занимается компания?"}'
+```
+
+Пересборка после изменения кода или документов — та же команда `docker compose up -d --build`. Чтобы переиндексировать документы заново, удалите содержимое `./data` перед запуском.
+
+## Локальный запуск без Docker
+
+```
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-in root create .env and there OPENAI_API_KEY=your_key
+python3 ingest.py
 python3 rag.py
+```

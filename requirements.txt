@@ -2,3 +2,5 @@ google-genai
 numpy
 python-dotenv
 chromadb
+fastapi
+uvicorn

@@ -1,0 +1,26 @@
+services:
+  rag:
+    image: rag-api:latest
+    build: .
+    container_name: rag
+    restart: unless-stopped
+    mem_limit: 512m
+    env_file:
+      - .env
+    environment:
+      VIRTUAL_HOST: rag.eletmed.ru
+      VIRTUAL_PORT: 8000
+      LETSENCRYPT_HOST: rag.eletmed.ru
+      LETSENCRYPT_EMAIL: fire_ra@bk.ru
+      CHROMA_PATH: /app/data/chroma
+      ANONYMIZED_TELEMETRY: "False"
+    volumes:
+      - ./data:/app/data
+    expose:
+      - "8000"
+    networks:
+      - web
+
+networks:
+  web:
+    external: true
