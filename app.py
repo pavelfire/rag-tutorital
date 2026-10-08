@@ -11,6 +11,7 @@ from chromadb.utils.embedding_functions import register_embedding_function
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from google import genai
+from google.genai import types
 from pydantic import BaseModel, Field
 
 load_dotenv()
@@ -23,6 +24,7 @@ COLLECTION_NAME = "company_documents"
 CHUNK_SIZE = 200
 EMBED_MODEL = "gemini-embedding-001"
 CHAT_MODEL = "gemini-3.8-flash"
+GEMINI_TIMEOUT_MS = 150_000
 
 chroma_client = chromadb.PersistentClient(path=CHROMA_PATH)
 
@@ -55,7 +57,10 @@ def gemini_client() -> genai.Client:
         api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:
             raise HTTPException(status_code=500, detail="GEMINI_API_KEY is not set")
-        _gemini = genai.Client(api_key=api_key)
+        _gemini = genai.Client(
+            api_key=api_key,
+            http_options=types.HttpOptions(timeout=GEMINI_TIMEOUT_MS),
+        )
     return _gemini
 
 

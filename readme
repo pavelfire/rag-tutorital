@@ -31,6 +31,22 @@ docker compose up -d --build
 
 Compose поднимает контейнер `rag` в сети `web`. nginx-proxy отдаёт его на `https://rag.eletmed.ru` и выпускает сертификат Let's Encrypt.
 
+Ответ `/ask` приходит одним куском после Gemini, а у nginx-proxy пауза ожидания по умолчанию 60 секунд. Пока она не увеличена, снаружи будет `504`. Файл `nginx/rag.eletmed.ru` задаёт 180 секунд. Клиент Gemini в приложении обрывает вызов раньше, через 150 секунд.
+
+На этом сервере каталог `/etc/nginx/vhost.d` смонтирован из `/opt/sites/vhost.d`. Создайте конфиг прямо там и перезапустите прокси, чтобы docker-gen заново собрал `server`:
+
+```
+cat > /opt/sites/vhost.d/rag.eletmed.ru << 'EOF'
+proxy_connect_timeout 10s;
+proxy_send_timeout 180s;
+proxy_read_timeout 180s;
+EOF
+docker restart nginx-proxy
+docker exec nginx-proxy nginx -T 2>&1 | grep proxy_read_timeout
+```
+
+В блоке `server_name rag.eletmed.ru` должно быть `proxy_read_timeout 180s`.
+
 Проверка конфига прокси:
 
 ```
@@ -57,3 +73,12 @@ pip install -r requirements.txt
 python3 ingest.py
 python3 rag.py
 ```
+
+добавил время ожидания nginx-proxy в 180 секунд
+cat > /opt/sites/vhost.d/rag.eletmed.ru << 'EOF'
+proxy_connect_timeout 10s;
+proxy_send_timeout 180s;
+proxy_read_timeout 180s;
+EOF
+docker restart nginx-proxy
+docker exec nginx-proxy nginx -T 2>&1 | grep proxy_read_timeout
